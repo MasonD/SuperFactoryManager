@@ -1,11 +1,13 @@
 package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.SFM;
+import ca.teamdman.sfm.client.registry.SFMKeyMappings;
 import ca.teamdman.sfm.client.render.HighlightRenderList;
 import ca.teamdman.sfm.common.item.LabelGunItem;
 import ca.teamdman.sfm.common.item.NetworkToolItem;
 import ca.teamdman.sfm.common.label.LabelPositionHolder;
 import ca.teamdman.sfm.common.util.HelpsWithMinecraftVersionIndependence;
+import ca.teamdman.sfm.common.util.Mth;
 import ca.teamdman.sfm.common.util.SFMDirections;
 import com.bbscn.Tools;
 import com.github.bsideup.jabel.Desugar;
@@ -21,6 +23,8 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -50,6 +54,12 @@ public class ItemWorldRenderer {
     private static final int noNetworkErrorColor = Tools.toARGB(200, 255, 50, 50);
     private static final HighlightRenderListCache renderCache = new HighlightRenderListCache();
 
+    private static int depth = 0;
+
+    public static void shiftDepth(int amount) {
+        depth = Mth.clamp(amount + depth, 0, 5);
+    }
+
     @SubscribeEvent
     public static void renderOverlays(RenderWorldLastEvent event) {
 
@@ -71,6 +81,7 @@ public class ItemWorldRenderer {
         }
         if (!rendered) {
             renderCache.clear();
+            depth = 0;
         }
     }
 
@@ -125,11 +136,11 @@ public class ItemWorldRenderer {
 
 
     private static void drawHighlights(
-                                       VBOKind vboKind,
-                                       Set<BlockPos> positions,
-                                       int color,
-                                       EntityPlayerSP player,
-                                       float highlightFraction
+            VBOKind vboKind,
+            Set<BlockPos> positions,
+            int color,
+            EntityPlayerSP player,
+            float highlightFraction
     ) {
         var colorRGB = new Color(color, true);
 
@@ -141,8 +152,9 @@ public class ItemWorldRenderer {
                 colorRGB.getGreen(),
                 colorRGB.getBlue(),
                 colorRGB.getAlpha()
-        ,
-                highlightFraction);
+                ,
+                highlightFraction
+        );
 
         if (list != null) {
             var renderManager = Minecraft.getMinecraft().getRenderManager();
@@ -177,6 +189,32 @@ public class ItemWorldRenderer {
         String activeLabel = LabelGunItem.getActiveLabel(labelGun);
         BlockPos lookingAtPos = lookingAt();
 
+        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY)) {
+            double remainingDistance = 100;
+
+            Vec3d eye = player.getPositionEyes(partialTicks);
+            Vec3d look = player.getLook(partialTicks);
+
+            Vec3d endVec;
+            endVec = eye.add(look.x * remainingDistance, look.y * remainingDistance, look.z * remainingDistance);
+
+            RayTraceResult trace = null;
+            for (int i = 0; i <= depth; i++) {
+                trace = player.getEntityWorld().rayTraceBlocks(eye, endVec, false, false, false);
+
+                if (trace != null && trace.typeOfHit == RayTraceResult.Type.BLOCK) {
+                    eye = trace.hitVec.add(look.x * 0.01, look.y * 0.01, look.z * 0.01);
+                } else {
+                    break;
+                }
+            }
+            if (trace != null && trace.typeOfHit == RayTraceResult.Type.BLOCK) {
+                labelsByPosition.put(trace.getBlockPos(), "HERE");
+            }
+        } else {
+            depth = 0;
+        }
+
         switch (viewMode) {
             case SHOW_ALL -> //noinspection RedundantLabeledSwitchRuleCodeBlock
             {
@@ -206,7 +244,13 @@ public class ItemWorldRenderer {
         }
 
 
-        drawHighlights(VBOKind.LABEL_GUN_CAPABILITIES, labelsByPosition.keySet(), viewMode != LabelGunItem.LabelGunViewMode.SHOW_ALL ? capabilityColorLimitedView : capabilityColor, player, 0.9F);
+        drawHighlights(
+                VBOKind.LABEL_GUN_CAPABILITIES,
+                labelsByPosition.keySet(),
+                viewMode != LabelGunItem.LabelGunViewMode.SHOW_ALL ? capabilityColorLimitedView : capabilityColor,
+                player,
+                0.9F
+        );
 
         GlStateManager.pushMatrix();
         GlStateManager.disableCull();
@@ -347,15 +391,16 @@ public class ItemWorldRenderer {
         private int lastCachedTick = -1;
 
         public @Nullable HighlightRenderList getList(
-                                                     VBOKind kind,
-                                                     Set<BlockPos> positions,
-                                                     EntityPlayerSP player,
-                                                     int r,
-                                                     int g,
-                                                     int b,
-                                                     int a
-        ,
-                                                     float highlightFraction) {
+                VBOKind kind,
+                Set<BlockPos> positions,
+                EntityPlayerSP player,
+                int r,
+                int g,
+                int b,
+                int a
+                ,
+                float highlightFraction
+        ) {
             if (positions.isEmpty()) {
                 return null;
             }
@@ -365,7 +410,8 @@ public class ItemWorldRenderer {
 
             if (entry != null
                     && player.ticksExisted != lastCachedTick
-                    && !entry.positions.equals(positions)) {
+                    && !entry.positions.equals(positions))
+            {
                 lastCachedTick = player.ticksExisted;
                 shouldRebuild = true;
             }

@@ -21,7 +21,7 @@ public class LabelGunScrollSwitcher {
         if (event.getDwheel() == 0) return;
         var player = Minecraft.getMinecraft().player;
         if (player == null) return;
-        if (!SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_SCROLL_MODIFIER_KEY)) return;
+        if (!SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_SCROLL_MODIFIER_KEY) && !SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY)) return;
         var gun = player.getHeldItemMainhand();
         var hand = EnumHand.MAIN_HAND;
         if (!(gun.getItem() instanceof LabelGunItem)) {
@@ -29,14 +29,20 @@ public class LabelGunScrollSwitcher {
             hand = EnumHand.OFF_HAND;
         }
         if (!(gun.getItem() instanceof LabelGunItem)) return;
+        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_SCROLL_MODIFIER_KEY)) {
 
-        var next = LabelGunItem.getNextLabel(gun, event.getDwheel() < 0 ? -1 : 1);
-        SFMPackets.sendToServer(new ServerboundLabelGunSetActiveLabelPacket(
-                next,
-                hand
-        ));
-        LabelGunKeyMappingHandler.setExternalDebounce();
 
-        event.setCanceled(true);
+            var next = LabelGunItem.getNextLabel(gun, event.getDwheel() < 0 ? -1 : 1);
+            SFMPackets.sendToServer(new ServerboundLabelGunSetActiveLabelPacket(
+                    next,
+                    hand
+            ));
+            LabelGunKeyMappingHandler.setExternalDebounce();
+
+            event.setCanceled(true);
+        } else if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY)) {
+            ItemWorldRenderer.shiftDepth(event.getDwheel() < 0 ? -1 : 1);
+            event.setCanceled(true);
+        }
     }
 }
