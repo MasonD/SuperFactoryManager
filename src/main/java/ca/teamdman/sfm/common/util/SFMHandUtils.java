@@ -28,6 +28,22 @@ public class SFMHandUtils {
         return null;
     }
 
+    public static @Nullable <T>ItemStackInHand getItemAndHand(
+            EntityPlayer player,
+            Class<T> seeking
+    ) {
+         ItemStack mainHandItem = player.getHeldItemMainhand();
+        if (seeking.isAssignableFrom(mainHandItem.getItem().getClass())) {
+            return new ItemStackInHand(mainHandItem, MAIN_HAND);
+        } else {
+            ItemStack offhandItem = player.getHeldItemOffhand();
+            if (seeking.isAssignableFrom(offhandItem.getItem().getClass())) {
+                return new ItemStackInHand(offhandItem, OFF_HAND);
+            }
+        }
+        return null;
+    }
+
     public static ItemStack getItemInEitherHand(
             EntityPlayer player,
             Item seeking

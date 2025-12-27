@@ -1,9 +1,12 @@
 package ca.teamdman.sfm.common.net;
 
 import ca.teamdman.sfm.common.label.LabelGunPlanner;
+import ca.teamdman.sfm.common.util.CompressedBlockPosSet;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+
+import java.util.Set;
 
 @Desugar
 public record ServerboundLabelGunUsePacket(
@@ -13,7 +16,8 @@ public record ServerboundLabelGunUsePacket(
         boolean isPickBlockModifierActive,
         boolean isClearModifierActive,
         boolean isPullModifierActive,
-        boolean isTargetManagerModifierActive
+        boolean isAimModeActive,
+        Set<BlockPos> blockSelection
 ) implements SFMPacket<ServerboundLabelGunUsePacket> {
     public static class Daddy implements SFMPacketDaddy<ServerboundLabelGunUsePacket> {
         @Override
@@ -32,7 +36,8 @@ public record ServerboundLabelGunUsePacket(
             buf.writeBoolean(msg.isPickBlockModifierActive);
             buf.writeBoolean(msg.isClearModifierActive);
             buf.writeBoolean(msg.isPullModifierActive);
-            buf.writeBoolean(msg.isTargetManagerModifierActive);
+            buf.writeBoolean(msg.isAimModeActive);
+            CompressedBlockPosSet.from(msg.blockSelection).write(buf);
         }
 
         @Override
@@ -44,7 +49,8 @@ public record ServerboundLabelGunUsePacket(
                     buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readBoolean(),
-                    buf.readBoolean()
+                    buf.readBoolean(),
+                    CompressedBlockPosSet.read(buf).into()
             );
         }
 
@@ -78,7 +84,8 @@ public record ServerboundLabelGunUsePacket(
                ", isPickBlockModifierActive=" + isPickBlockModifierActive +
                ", isClearModifierActive=" + isClearModifierActive +
                ", isPullModifierActive=" + isPullModifierActive +
-               ", isTargetManagerModifierActive=" + isTargetManagerModifierActive +
+               ", isAimModeActive=" + isAimModeActive +
+               ", blockSelection=" + blockSelection +
                '}';
     }
 

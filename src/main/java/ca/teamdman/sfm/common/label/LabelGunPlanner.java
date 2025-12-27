@@ -25,7 +25,7 @@ public class LabelGunPlanner {
         var gunLabels = LabelPositionHolder.from(gunStack).toOwned();
 
         if (
-                !msg.isTargetManagerModifierActive()
+                !msg.isAimModeActive()
                         && world.getTileEntity(msg.pos()) instanceof ManagerBlockEntity manager
         ) {
             return new LabelGunManagerPushOrPullAction(
@@ -40,7 +40,7 @@ public class LabelGunPlanner {
 
 
         if (
-                !msg.isTargetManagerModifierActive()
+                !msg.isAimModeActive()
                         && world.getTileEntity(msg.pos()) instanceof TileEntityManager manager
         ) {
             return new LabelGunOldManagerPushOrPullAction(

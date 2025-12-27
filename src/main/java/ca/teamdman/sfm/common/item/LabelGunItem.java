@@ -1,15 +1,19 @@
 package ca.teamdman.sfm.common.item;
 
 import ca.teamdman.sfm.client.ClientLabelGunWarningHelper;
+import ca.teamdman.sfm.client.handler.BlockSelection;
 import ca.teamdman.sfm.client.handler.LabelGunKeyMappingHandler;
 import ca.teamdman.sfm.client.registry.SFMKeyMappings;
 import ca.teamdman.sfm.client.screen.SFMScreenChangeHelpers;
-import ca.teamdman.sfm.common.block.ManagerBlock;
 import ca.teamdman.sfm.common.label.LabelPositionHolder;
 import ca.teamdman.sfm.common.localization.LocalizationKeys;
+import ca.teamdman.sfm.common.net.ServerboundLabelGunSetActiveLabelPacket;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunUsePacket;
+import ca.teamdman.sfm.common.registry.SFMPackets;
+import ca.teamdman.sfm.common.util.SFMHandUtils;
 import ca.teamdman.sfm.common.util.SFMItemUtils;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.GameSettings;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
@@ -29,16 +33,12 @@ import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import vswe.superfactory.blocks.BlockManager;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
-public class LabelGunItem extends Item {
+public class LabelGunItem extends Item implements ToolItem {
     public LabelGunItem() {
         super();
         setMaxStackSize(1);
@@ -137,34 +137,34 @@ public class LabelGunItem extends Item {
             EnumHand hand
     ) {
         if (world.isRemote && player != null) {
-            boolean pickBlock = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PICK_BLOCK_MODIFIER_KEY);
-            boolean contiguous = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY);
-            boolean clear = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CLEAR_MODIFIER_KEY);
-            boolean pull = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PULL_MODIFIER_KEY);
-            boolean targetManager = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
-
-            if (targetManager && !(world.getBlockState(pos).getBlock() instanceof ManagerBlock || world.getBlockState(pos).getBlock() instanceof BlockManager)) {
-                SFMScreenChangeHelpers.showLabelGunScreen(player.getHeldItem(hand), hand);
-                return EnumActionResult.SUCCESS;
-            }
-
-            ServerboundLabelGunUsePacket msg = new ServerboundLabelGunUsePacket(
-                    hand,
-                    pos,
-                    contiguous,
-                    pickBlock,
-                    clear,
-                    pull,
-                    targetManager
-            );
-            ClientLabelGunWarningHelper.sendLabelGunUsePacketFromClientWithConfirmationIfNecessary(msg, player);
-            if (pickBlock) {
-                // we don't want to toggle the overlay if we're using pick-block
-                LabelGunKeyMappingHandler.setExternalDebounce();
-            }
+            sendLabelGunUsePacket(player, pos, hand);
             return EnumActionResult.SUCCESS;
         }
         return EnumActionResult.SUCCESS;
+    }
+
+    private static void sendLabelGunUsePacket(EntityPlayer player, BlockPos pos, EnumHand hand) {
+        boolean pickBlock = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PICK_BLOCK_MODIFIER_KEY);
+        boolean contiguous = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY);
+        boolean clear = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CLEAR_MODIFIER_KEY);
+        boolean pull = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PULL_MODIFIER_KEY);
+        boolean targetManager = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+
+        ServerboundLabelGunUsePacket msg = new ServerboundLabelGunUsePacket(
+                hand,
+                pos,
+                contiguous,
+                pickBlock,
+                clear,
+                pull,
+                targetManager,
+                BlockSelection.getCurrentSelection()
+        );
+        ClientLabelGunWarningHelper.sendLabelGunUsePacketFromClientWithConfirmationIfNecessary(msg, player);
+        if (pickBlock) {
+            // we don't want to toggle the overlay if we're using pick-block
+            LabelGunKeyMappingHandler.setExternalDebounce();
+        }
     }
 
     @Override
@@ -176,9 +176,31 @@ public class LabelGunItem extends Item {
         ItemStack stack = player.getHeldItem(hand);
 
         if (world.isRemote) {
-            SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
+            if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY) && BlockSelection.getMainSelectedBlock() != null) {
+                sendLabelGunUsePacket(player, BlockSelection.getMainSelectedBlock(), hand);
+            } else {
+                SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
+            }
         }
         return ActionResult.newResult(EnumActionResult.SUCCESS, stack);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public boolean onItemScroll(EntityPlayerSP player, SFMHandUtils.ItemStackInHand itemInHand, int scrollDirection) {
+        var tool = itemInHand.stack();
+        var hand = itemInHand.hand();
+
+        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_SCROLL_MODIFIER_KEY)) {
+            var next = LabelGunItem.getNextLabel(tool, scrollDirection);
+            SFMPackets.sendToServer(new ServerboundLabelGunSetActiveLabelPacket(
+                    next,
+                    hand
+            ));
+            LabelGunKeyMappingHandler.setExternalDebounce();
+            return true;
+        }
+        return false;
     }
 
     @Override
@@ -262,9 +284,17 @@ public class LabelGunItem extends Item {
         }
     }
 
-    @NotNull
     @Override
-    public EnumActionResult onItemUse(EntityPlayer player, World world, BlockPos pos, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ) {
+    public EnumActionResult onItemUse(
+            EntityPlayer player,
+            World world,
+            BlockPos pos,
+            EnumHand hand,
+            EnumFacing facing,
+            float hitX,
+            float hitY,
+            float hitZ
+    ) {
         var stack = player.getHeldItem(hand);
         if (world.isRemote) {
             SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
@@ -285,6 +315,27 @@ public class LabelGunItem extends Item {
     public static void clearAll(ItemStack stack) {
         LabelPositionHolder.clear(stack);
         LabelGunItem.setActiveLabel(stack, null);
+    }
+
+    @Override
+    public int maxDigDepth(ItemStack stack) {
+        return 5;
+    }
+
+    @Override
+    public boolean isBlockSelectionOn(EntityPlayerSP player, EnumHand hand, ItemStack stack) {
+        return SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+    }
+
+    @Override
+    public Map<BlockPos, String> getSelectedBlocksFromRaycast(
+            EntityPlayerSP player,
+            ItemStack stack,
+            BlockPos raycastPos
+    ) {
+        var map = new HashMap<BlockPos, String>();
+        map.put(raycastPos, getActiveLabel(stack));
+        return map;
     }
 
     public enum LabelGunViewMode {

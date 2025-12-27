@@ -25,6 +25,10 @@ public record LabelGunPlanTargets(
             World level,
             ServerboundLabelGunUsePacket msg
     ) {
+        if (msg.isAimModeActive()) {
+            return new LabelGunPlanTargets(msg.blockSelection(), Collections.emptySet());
+        }
+
         // get the block type of the target position
         Block targetBlock = level.getBlockState(msg.pos()).getBlock();
 
