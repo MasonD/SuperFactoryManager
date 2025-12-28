@@ -3,6 +3,7 @@ package ca.teamdman.sfm.common.label;
 import ca.teamdman.sfm.common.blockentity.ManagerBlockEntity;
 import ca.teamdman.sfm.common.item.LabelGunItem;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunUsePacket;
+import ca.teamdman.sfm.common.registry.SFMItems;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -54,13 +55,13 @@ public class LabelGunPlanner {
         }
 
         var activeLabel = LabelGunItem.getActiveLabel(gunStack);
-        LabelGunPlanTargets targets = LabelGunPlanTargets.getTargets(world, msg);
+        SelectionTargets targets = SFMItems.LABEL_GUN_ITEM.getSelectedBlocksFromRaycast(player, gunStack, msg.pos());
 
         // Notify user if any blocks were skipped because they aren't touching cables
         // TODO: highlight skipped blocks in the world
-        if (doWarning && !targets.warnBecauseNoCableNeighbour().isEmpty()) {
+        if (doWarning && !targets.warningPositions().isEmpty()) {
             player.sendStatusMessage(LABEL_GUN_CHAT_SKIPPED_BLOCKS.getComponent(
-                    targets.warnBecauseNoCableNeighbour().size()
+                    targets.warningPositions().size()
             ), false);
         }
 

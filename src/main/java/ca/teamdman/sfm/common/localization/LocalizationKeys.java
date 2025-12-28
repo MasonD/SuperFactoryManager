@@ -262,9 +262,9 @@ public final class LocalizationKeys {
             () -> itemDescriptionId(SFMItems.LABEL_GUN_ITEM) + ".tooltip.gui_reminder",
             () -> "%s the air to open GUI."
     );
-    public static final LocalizationEntry LABEL_GUN_ITEM_TOOLTIP_TARGET_MANAGER_REMINDER = new LocalizationEntry(
-            () -> itemDescriptionId(SFMItems.LABEL_GUN_ITEM) + ".tooltip.target_manager_reminder",
-            () -> "%s + %s to label a Factory Manager itself."
+    public static final LocalizationEntry LABEL_GUN_ITEM_TOOLTIP_AIM_MODE_REMINDER = new LocalizationEntry(
+            () -> itemDescriptionId(SFMItems.LABEL_GUN_ITEM) + ".tooltip.aim_mode_reminder",
+            () -> "Hold %s to target blocks using Aim Mode."
     );
     public static final LocalizationEntry LABEL_GUN_VIEW_MODE_SHOW_ONLY_ACTIVE_AND_TARGETED = new LocalizationEntry(
             () -> "sfm.label_gun.view_mode.show_only_active_and_targeted",
@@ -863,9 +863,9 @@ public final class LocalizationKeys {
             "key.sfm.label_gun.pull_modifier",
             "Label Gun Pull Modifier"
     );
-    public static final LocalizationEntry LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY = new LocalizationEntry(
-            "key.sfm.label_gun.target_manager_modifier",
-            "Label Gun Target Manager Modifier"
+    public static final LocalizationEntry AIM_MODE_MODIFIER_KEY = new LocalizationEntry(
+            "key.sfm.label_gun.aim_mode_modifier",
+            "Aim Mode Modifier"
     );
     public static final LocalizationEntry MANAGER_SCREEN_OPEN_TEXT_EDITOR_KEY = new LocalizationEntry(
             "key.sfm.manager.text_editor",

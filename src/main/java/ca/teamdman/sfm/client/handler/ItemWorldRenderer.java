@@ -1,7 +1,6 @@
 package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.SFM;
-import ca.teamdman.sfm.client.registry.SFMKeyMappings;
 import ca.teamdman.sfm.client.render.HighlightRenderList;
 import ca.teamdman.sfm.common.item.LabelGunItem;
 import ca.teamdman.sfm.common.item.NetworkToolItem;
@@ -20,8 +19,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -47,7 +44,7 @@ public class ItemWorldRenderer {
     private static final int capabilityColor = Tools.toARGB(64, 100, 0, 255);
     private static final int capabilityColorLimitedView = Tools.toARGB(64, 100, 255, 255);
     private static final int cableColor = Tools.toARGB(64, 100, 255, 0);
-    private static final int noNetworkErrorColor = Tools.toARGB(200, 255, 50, 50);
+    private static final int warningColor = Tools.toARGB(120, 255, 50, 50);
     private static final HighlightRenderListCache renderCache = new HighlightRenderListCache();
 
     @SubscribeEvent
@@ -94,7 +91,8 @@ public class ItemWorldRenderer {
     ) {
         var selectionBlocks = BlockSelection.updateSelection(player, tool, hand, partialTicks);
         if (selectionBlocks.isEmpty()) return;
-        drawHighlights(VBOKind.TOOL_ITEM_SELECTED_BLOCKS, selectionBlocks.keySet(), capabilityColor, player, 1);
+        drawHighlights(VBOKind.TOOL_ITEM_SELECTED_BLOCKS, selectionBlocks.positions(), capabilityColor, player, 1);
+        drawHighlights(VBOKind.TOOL_ITEM_WARNING_BLOCKS, selectionBlocks.warningPositions(), warningColor, player, 1);
 
         GlStateManager.pushMatrix();
         GlStateManager.disableCull();
@@ -108,8 +106,8 @@ public class ItemWorldRenderer {
                 -renderManager.viewerPosY,
                 -renderManager.viewerPosZ
         );
-        for (Map.Entry<BlockPos, String> entry : selectionBlocks.entrySet()) {
-            drawLabel(entry.getKey(), Collections.singleton(entry.getValue()), player);
+        if (BlockSelection.getMainSelectedBlock() != null) {
+            drawLabel(BlockSelection.getMainSelectedBlock(), Collections.singleton(LabelGunItem.getActiveLabel(tool)), player);
         }
 
         GlStateManager.enableDepth();
@@ -158,7 +156,7 @@ public class ItemWorldRenderer {
             drawHighlights(
                     VBOKind.NETWORK_TOOL_CABLES,
                     Stream.of(selectedPos).collect(Collectors.toCollection(HashSet::new)),
-                    noNetworkErrorColor,
+                    warningColor,
                     player,
                     1
             );
@@ -307,7 +305,8 @@ public class ItemWorldRenderer {
         LABEL_GUN_CAPABILITIES,
         NETWORK_TOOL_CAPABILITIES,
         NETWORK_TOOL_CABLES,
-        TOOL_ITEM_SELECTED_BLOCKS
+        TOOL_ITEM_SELECTED_BLOCKS,
+        TOOL_ITEM_WARNING_BLOCKS
     }
 
 

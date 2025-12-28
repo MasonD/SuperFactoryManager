@@ -1,6 +1,8 @@
 package ca.teamdman.sfm.common.net;
 
+import ca.teamdman.sfm.client.handler.BlockSelection;
 import ca.teamdman.sfm.common.label.LabelGunPlanner;
+import ca.teamdman.sfm.common.label.SelectionTargets;
 import ca.teamdman.sfm.common.util.CompressedBlockPosSet;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.util.EnumHand;
@@ -17,7 +19,7 @@ public record ServerboundLabelGunUsePacket(
         boolean isClearModifierActive,
         boolean isPullModifierActive,
         boolean isAimModeActive,
-        Set<BlockPos> blockSelection
+        SelectionTargets blockSelection
 ) implements SFMPacket<ServerboundLabelGunUsePacket> {
     public static class Daddy implements SFMPacketDaddy<ServerboundLabelGunUsePacket> {
         @Override
@@ -37,7 +39,7 @@ public record ServerboundLabelGunUsePacket(
             buf.writeBoolean(msg.isClearModifierActive);
             buf.writeBoolean(msg.isPullModifierActive);
             buf.writeBoolean(msg.isAimModeActive);
-            CompressedBlockPosSet.from(msg.blockSelection).write(buf);
+            msg.blockSelection.write(buf);
         }
 
         @Override
@@ -50,7 +52,7 @@ public record ServerboundLabelGunUsePacket(
                     buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readBoolean(),
-                    CompressedBlockPosSet.read(buf).into()
+                    SelectionTargets.read(buf)
             );
         }
 

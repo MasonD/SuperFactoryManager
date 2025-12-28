@@ -34,7 +34,7 @@ public class ToolItemScrollHandler {
             return;
         }
 
-        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY)) {
+        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY)) {
             BlockSelection.shiftDigDepth(
                     event.getDwheel() < 0 ? -1 : 1,
                     ((ToolItem) itemInHand.stack().getItem()).maxDigDepth(itemInHand.stack())

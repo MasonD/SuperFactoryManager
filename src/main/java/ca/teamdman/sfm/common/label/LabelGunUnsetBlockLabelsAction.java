@@ -17,7 +17,7 @@ public record LabelGunUnsetBlockLabelsAction(
         ServerboundLabelGunUsePacket msg,
         ItemStack gunStack,
         LabelPositionHolder gunLabels,
-        LabelGunPlanTargets targets,
+        SelectionTargets targets,
         String activeLabel
 ) implements LabelGunPlan {
     @Override

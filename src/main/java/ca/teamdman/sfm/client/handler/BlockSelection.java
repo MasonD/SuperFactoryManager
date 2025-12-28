@@ -1,7 +1,7 @@
 package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.common.item.ToolItem;
-import ca.teamdman.sfm.common.util.CompressedBlockPosSet;
+import ca.teamdman.sfm.common.label.SelectionTargets;
 import ca.teamdman.sfm.common.util.Mth;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.item.ItemStack;
@@ -11,17 +11,14 @@ import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
-import java.util.Map;
-import java.util.Set;
-
 public class BlockSelection {
     static int digDepth = 0;
     @Nullable
     private static BlockPos cachedBlockPos;
+    private static int cachedModifierState;
     @Nullable
     private static ItemStack cachedItemStack;
-    private static Map<BlockPos, String> cachedSelectedBlocks;
+    private static SelectionTargets cachedSelectedBlocks;
 
     public static void shiftDigDepth(int amount, int max) {
         digDepth = Mth.clamp(amount + digDepth, 0, max);
@@ -29,20 +26,17 @@ public class BlockSelection {
 
     public static void clear() {
         digDepth = 0;
-        cachedSelectedBlocks = Collections.emptyMap();
+        cachedSelectedBlocks = SelectionTargets.empty;
     }
 
     public static void clearCache() {
         cachedBlockPos = null;
         cachedItemStack = null;
-        cachedSelectedBlocks = Collections.emptyMap();
+        cachedSelectedBlocks = SelectionTargets.empty;
     }
 
-    public static Set<BlockPos> getCurrentSelection() {
-        if (cachedBlockPos == null) {
-            return Collections.emptySet();
-        }
-        return cachedSelectedBlocks.keySet();
+    public static SelectionTargets getCurrentSelection() {
+        return cachedSelectedBlocks;
     }
 
 
@@ -58,7 +52,7 @@ public class BlockSelection {
         Vec3d look = player.getLook(partialTicks);
 
         Vec3d endVec;
-        endVec = eye.add(look.x * remainingDistance, look.y * remainingDistance, look.z * remainingDistance);
+        endVec = eye.add(look.scale(remainingDistance));
 
         RayTraceResult trace = null;
         for (int i = 0; i <= BlockSelection.digDepth; i++) {
@@ -74,24 +68,26 @@ public class BlockSelection {
         return trace;
     }
 
-    public static Map<BlockPos, String> updateSelection(
+    public static SelectionTargets updateSelection(
             EntityPlayerSP player,
             ItemStack tool,
             EnumHand hand,
             float partialTicks
     ) {
         if (!(tool.getItem() instanceof ToolItem toolItem)) {
-            return Collections.emptyMap();
+            return SelectionTargets.empty;
         }
 
-        if (toolItem.isBlockSelectionOn(player, hand, tool)) {
+        int selectionState = toolItem.getBlockSelectionModifierState(player, hand, tool);
+        if (selectionState != 0) {
             RayTraceResult trace = BlockSelection.traceLook(player, tool, hand, partialTicks);
 
             if (trace != null && trace.typeOfHit == RayTraceResult.Type.BLOCK) {
                 if (
                         player.ticksExisted % 20 == 0
-                                || (tool != cachedItemStack || !trace.getBlockPos().equals(cachedBlockPos))
+                                || tool != cachedItemStack || !trace.getBlockPos().equals(cachedBlockPos) || selectionState != cachedModifierState
                 ) {
+                    cachedModifierState = selectionState;
                     cachedBlockPos = trace.getBlockPos();
                     cachedItemStack = tool;
                     cachedSelectedBlocks = toolItem.getSelectedBlocksFromRaycast(

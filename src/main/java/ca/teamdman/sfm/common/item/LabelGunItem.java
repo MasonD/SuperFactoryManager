@@ -5,13 +5,18 @@ import ca.teamdman.sfm.client.handler.BlockSelection;
 import ca.teamdman.sfm.client.handler.LabelGunKeyMappingHandler;
 import ca.teamdman.sfm.client.registry.SFMKeyMappings;
 import ca.teamdman.sfm.client.screen.SFMScreenChangeHelpers;
+import ca.teamdman.sfm.common.cablenetwork.CableNetwork;
+import ca.teamdman.sfm.common.cablenetwork.CableNetworkManager;
 import ca.teamdman.sfm.common.label.LabelPositionHolder;
+import ca.teamdman.sfm.common.label.SelectionTargets;
 import ca.teamdman.sfm.common.localization.LocalizationKeys;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunSetActiveLabelPacket;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunUsePacket;
 import ca.teamdman.sfm.common.registry.SFMPackets;
 import ca.teamdman.sfm.common.util.SFMHandUtils;
 import ca.teamdman.sfm.common.util.SFMItemUtils;
+import ca.teamdman.sfm.common.util.SFMStreamUtils;
+import net.minecraft.block.Block;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.settings.GameSettings;
@@ -36,7 +41,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
+
+import static ca.teamdman.sfm.common.util.SFMStreamUtils.get3DNeighbours;
+import static ca.teamdman.sfm.common.util.SFMStreamUtils.get3DNeighboursIncludingKittyCorner;
 
 public class LabelGunItem extends Item implements ToolItem {
     public LabelGunItem() {
@@ -148,7 +157,7 @@ public class LabelGunItem extends Item implements ToolItem {
         boolean contiguous = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY);
         boolean clear = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CLEAR_MODIFIER_KEY);
         boolean pull = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PULL_MODIFIER_KEY);
-        boolean targetManager = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+        boolean targetManager = SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY);
 
         ServerboundLabelGunUsePacket msg = new ServerboundLabelGunUsePacket(
                 hand,
@@ -176,7 +185,7 @@ public class LabelGunItem extends Item implements ToolItem {
         ItemStack stack = player.getHeldItem(hand);
 
         if (world.isRemote) {
-            if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY) && BlockSelection.getMainSelectedBlock() != null) {
+            if (SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY) && BlockSelection.getMainSelectedBlock() != null) {
                 sendLabelGunUsePacket(player, BlockSelection.getMainSelectedBlock(), hand);
             } else {
                 SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
@@ -237,9 +246,8 @@ public class LabelGunItem extends Item implements ToolItem {
                     ).setStyle(new Style().setColor(TextFormatting.GRAY)).getFormattedText()
             );
             lines.add(
-                    LocalizationKeys.LABEL_GUN_ITEM_TOOLTIP_TARGET_MANAGER_REMINDER.getComponent(
-                            SFMKeyMappings.getKeyDisplay(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY),
-                            SFMKeyMappings.getKeyDisplay(options.keyBindUseItem)
+                    LocalizationKeys.LABEL_GUN_ITEM_TOOLTIP_AIM_MODE_REMINDER.getComponent(
+                            SFMKeyMappings.getKeyDisplay(SFMKeyMappings.AIM_MODE_MODIFIER_KEY)
                     ).setStyle(new Style().setColor(TextFormatting.GRAY)).getFormattedText()
             );
             lines.add(
@@ -323,20 +331,76 @@ public class LabelGunItem extends Item implements ToolItem {
     }
 
     @Override
-    public boolean isBlockSelectionOn(EntityPlayerSP player, EnumHand hand, ItemStack stack) {
-        return SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+    public int getBlockSelectionModifierState(EntityPlayerSP player, EnumHand hand, ItemStack stack) {
+        if (!SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY)) {
+            return 0;
+        }
+        if (SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY)) {
+            return 2;
+        }
+        return 1;
     }
 
     @Override
-    public Map<BlockPos, String> getSelectedBlocksFromRaycast(
-            EntityPlayerSP player,
+    public SelectionTargets getSelectedBlocksFromRaycast(
+            EntityPlayer player,
             ItemStack stack,
             BlockPos raycastPos
     ) {
-        var map = new HashMap<BlockPos, String>();
-        map.put(raycastPos, getActiveLabel(stack));
-        return map;
+        var level = player.getEntityWorld();
+        boolean contiguous = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY);
+
+
+        // get the block type of the target position
+        Block targetBlock = level.getBlockState(raycastPos).getBlock();
+
+        if (!contiguous) {
+            return new SelectionTargets(new HashSet<>(Arrays.asList(raycastPos)), Collections.emptySet());
+        }
+        Set<BlockPos> targets;
+
+        // find all cable positions so that we only include blocks adjacent to a cable
+        Set<BlockPos> cablePositions;
+        if (level.isRemote) {
+            // There are no cable networks on the client, so we need to discover the cable positions
+            // We need to know this to determine how large the change is and if we need to ask the client for confirmation
+            cablePositions = get3DNeighbours(raycastPos)
+                    .filter(pos -> CableNetwork.isCable(level, pos))
+                    .flatMap(cablePos -> CableNetwork.discoverCables(level, cablePos))
+                    .collect(Collectors.toSet());
+        } else {
+            cablePositions = get3DNeighbours(raycastPos)
+                    .map(suspected_cable_pos -> CableNetworkManager.getOrRegisterNetworkFromCablePosition(
+                            level,
+                            suspected_cable_pos
+                    ))
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .flatMap(CableNetwork::getCablePositions)
+                    .collect(Collectors.toSet());
+        }
+
+        Set<BlockPos> warnBecauseNoCableNeighbour = new HashSet<>();
+        Predicate<BlockPos> isAdjacentToCable = p -> {
+            boolean isAdjacent = get3DNeighbours(p).anyMatch(cablePositions::contains);
+            if (!isAdjacent) {
+                warnBecauseNoCableNeighbour.add(p);
+            }
+            return isAdjacent;
+        };
+        targets = SFMStreamUtils.<BlockPos, BlockPos>getRecursiveStream(
+                        (current, nextQueue, results) -> {
+                            results.accept(current);
+                            get3DNeighboursIncludingKittyCorner(current)
+                                    .filter(p -> level.getBlockState(p).getBlock() == targetBlock)
+                                    .filter(isAdjacentToCable)
+                                    .forEach(nextQueue);
+                        }, raycastPos
+                )
+                .collect(Collectors.toSet());
+        return new SelectionTargets(targets, warnBecauseNoCableNeighbour);
     }
+
 
     public enum LabelGunViewMode {
         SHOW_ALL,

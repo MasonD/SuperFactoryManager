@@ -76,8 +76,8 @@ public class SFMKeyMappings {
             SFMKeyConflictContext.LABEL_GUN_ON_MANAGER,
             Keyboard.KEY_LSHIFT,
             LocalizationKeys.SFM_KEY_CATEGORY.key().get());
-    public static final KeyBinding LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY = new KeyBinding(
-            LocalizationKeys.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY.key().get(),
+    public static final KeyBinding AIM_MODE_MODIFIER_KEY = new KeyBinding(
+            LocalizationKeys.AIM_MODE_MODIFIER_KEY.key().get(),
             SFMKeyConflictContext.LABEL_GUN,
             KeyModifier.NONE, Keyboard.KEY_RMENU, LocalizationKeys.SFM_KEY_CATEGORY.key().get());
     public static final KeyBinding MANAGER_SCREEN_OPEN_TEXT_EDITOR_KEY = new KeyBinding(LocalizationKeys.MANAGER_SCREEN_OPEN_TEXT_EDITOR_KEY.key().get(), SFMKeyConflictContext.MANAGER,
@@ -96,7 +96,7 @@ public class SFMKeyMappings {
         ClientRegistry.registerKeyBinding(LABEL_GUN_NEXT_LABEL_KEY);
         ClientRegistry.registerKeyBinding(LABEL_GUN_PREVIOUS_LABEL_KEY);
         ClientRegistry.registerKeyBinding(LABEL_GUN_PULL_MODIFIER_KEY);
-        ClientRegistry.registerKeyBinding(LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+        ClientRegistry.registerKeyBinding(AIM_MODE_MODIFIER_KEY);
         ClientRegistry.registerKeyBinding(MANAGER_SCREEN_OPEN_TEXT_EDITOR_KEY);
     }
 

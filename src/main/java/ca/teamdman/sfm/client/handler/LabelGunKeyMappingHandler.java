@@ -63,7 +63,7 @@ public class LabelGunKeyMappingHandler {
         // only do something if the key was pressed
         boolean keyDown = SFMKeyMappings.isKeyDown(SFMKeyMappings.CYCLE_LABEL_VIEW_KEY);
         boolean keyPress = cycleViewKeyState.handleKey(keyDown);
-        boolean raycastDown = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_TARGET_MANAGER_MODIFIER_KEY);
+        boolean raycastDown = SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY);
         boolean raycastPress = raycastKeyState.handleKey(raycastDown);
         if (keyPress) {
             // don't do anything if a screen is open
