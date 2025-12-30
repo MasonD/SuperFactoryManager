@@ -15,7 +15,7 @@ public class HighlightRenderList {
     public final HashSet<BlockPos> positions;
     private int renderList;
 
-    private final int r, g, b, a;
+    public final int r, g, b, a;
 
 
     public HighlightRenderList(HashSet<BlockPos> blockPos, int r, int g, int b, int a, float highlightFraction) {

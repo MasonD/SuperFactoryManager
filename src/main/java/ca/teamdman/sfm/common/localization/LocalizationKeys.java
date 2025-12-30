@@ -1,6 +1,7 @@
 package ca.teamdman.sfm.common.localization;
 
 import ca.teamdman.sfm.SFM;
+import ca.teamdman.sfm.client.widget.PickListItem;
 import ca.teamdman.sfm.common.registry.SFMBlocks;
 import ca.teamdman.sfm.common.registry.SFMItems;
 import net.minecraft.block.Block;
@@ -10,6 +11,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class LocalizationKeys {
+
+    public static final LocalizationEntry POINTER_SELECT_SCREEN_TITLE = new LocalizationEntry(
+            "gui.sfm.label_gun.pointer_select_screen.title",
+            "Aim Mode"
+    );
 
     public static String itemDescriptionId(Item item) {
         return item.getTranslationKey();
@@ -264,7 +270,7 @@ public final class LocalizationKeys {
     );
     public static final LocalizationEntry LABEL_GUN_ITEM_TOOLTIP_AIM_MODE_REMINDER = new LocalizationEntry(
             () -> itemDescriptionId(SFMItems.LABEL_GUN_ITEM) + ".tooltip.aim_mode_reminder",
-            () -> "Hold %s to target blocks using Aim Mode."
+            () -> "Hold %s to quick aim. Tap %s to enter Aim Mode."
     );
     public static final LocalizationEntry LABEL_GUN_VIEW_MODE_SHOW_ONLY_ACTIVE_AND_TARGETED = new LocalizationEntry(
             () -> "sfm.label_gun.view_mode.show_only_active_and_targeted",

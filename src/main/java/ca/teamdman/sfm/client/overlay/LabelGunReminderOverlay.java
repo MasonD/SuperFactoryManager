@@ -34,6 +34,10 @@ public class LabelGunReminderOverlay {
             return;
         }
 
+        if (minecraft.currentScreen != null) {
+            return;
+        }
+
         LabelGunItem.LabelGunViewMode viewMode = getViewMode(player);
         if (viewMode == null) return;
         var msg = switch(viewMode) {

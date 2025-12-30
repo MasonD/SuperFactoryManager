@@ -2,6 +2,7 @@ package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.SFM;
 import ca.teamdman.sfm.client.registry.SFMKeyMappings;
+import ca.teamdman.sfm.client.screen.PointerSelectScreen;
 import ca.teamdman.sfm.common.item.LabelGunItem;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunCycleViewModePacket;
 import ca.teamdman.sfm.common.net.ServerboundLabelGunSetActiveLabelPacket;
@@ -30,6 +31,7 @@ public class LabelGunKeyMappingHandler {
         cycleViewKeyState.debounce();
         nextLabelKeyState.debounce();
         prevLabelKeyState.debounce();
+        raycastKeyState.debounce();
     }
 
     @SuppressWarnings("DuplicatedCode")
@@ -59,11 +61,16 @@ public class LabelGunKeyMappingHandler {
         }
     }
 
-    private static void handleAltKeyLogic(Minecraft minecraft, EntityPlayer player) {
+    private static void handleAltKeyLogic(Minecraft minecraft, EntityPlayerSP player) {
         // only do something if the key was pressed
         boolean keyDown = SFMKeyMappings.isKeyDown(SFMKeyMappings.CYCLE_LABEL_VIEW_KEY);
         boolean keyPress = cycleViewKeyState.handleKey(keyDown);
         boolean raycastDown = SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY);
+
+        if (raycastDown && raycastKeyState.state == KeyState.KeyStateEnum.Idle) {
+            AimModeTargetHandler.resetDigDepth();
+        }
+
         boolean raycastPress = raycastKeyState.handleKey(raycastDown);
         if (keyPress) {
             // don't do anything if a screen is open
@@ -71,9 +78,22 @@ public class LabelGunKeyMappingHandler {
             EnumHand hand = SFMHandUtils.getHandHoldingItem(
                     player,
                     SFMItems.LABEL_GUN_ITEM
-            );if (hand == null) return;
+            );
+            if (hand == null) return;
             // send packet to server to toggle mode
             SFMPackets.sendToServer(new ServerboundLabelGunCycleViewModePacket(hand));
+        } else if (raycastPress) {
+            if (minecraft.currentScreen != null && !(minecraft.currentScreen instanceof PointerSelectScreen)) return;
+            EnumHand hand = SFMHandUtils.getHandHoldingItem(
+                    player,
+                    SFMItems.LABEL_GUN_ITEM
+            );
+            if (hand == null) return;
+            if (minecraft.currentScreen == null) {
+                Minecraft.getMinecraft().displayGuiScreen(new PointerSelectScreen(player, hand));
+            } else {
+                Minecraft.getMinecraft().displayGuiScreen(null);
+            }
         }
     }
 

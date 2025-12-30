@@ -30,6 +30,11 @@ public class NetworkToolReminderOverlay {
             return;
         }
 
+        if (minecraft.currentScreen != null) {
+            return;
+        }
+
+
         if (!shouldRender(player)) return;
 
 

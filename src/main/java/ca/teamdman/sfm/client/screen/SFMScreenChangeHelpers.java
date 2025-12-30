@@ -68,7 +68,7 @@ public class SFMScreenChangeHelpers {
             ItemStack stack,
             EnumHand hand
     ) {
-
+//        Minecraft.getMinecraft().displayGuiScreen(new PointerSelectScreen());
         setOrPushScreen(new LabelGunScreen(stack, hand));
     }
 

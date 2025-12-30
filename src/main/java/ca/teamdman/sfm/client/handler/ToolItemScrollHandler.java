@@ -2,6 +2,7 @@ package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.SFM;
 import ca.teamdman.sfm.client.registry.SFMKeyMappings;
+import ca.teamdman.sfm.client.screen.PointerSelectScreen;
 import ca.teamdman.sfm.common.item.ToolItem;
 import ca.teamdman.sfm.common.util.SFMHandUtils;
 import net.minecraft.client.Minecraft;
@@ -35,7 +36,7 @@ public class ToolItemScrollHandler {
         }
 
         if (SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY)) {
-            BlockSelection.shiftDigDepth(
+            AimModeTargetHandler.shiftDigDepth(
                     event.getDwheel() < 0 ? -1 : 1,
                     ((ToolItem) itemInHand.stack().getItem()).maxDigDepth(itemInHand.stack())
             );

@@ -1,8 +1,8 @@
 package ca.teamdman.sfm.common.item;
 
 import ca.teamdman.sfm.client.ClientLabelGunWarningHelper;
-import ca.teamdman.sfm.client.handler.BlockSelection;
 import ca.teamdman.sfm.client.handler.LabelGunKeyMappingHandler;
+import ca.teamdman.sfm.client.handler.ToolItemAimModeHandler;
 import ca.teamdman.sfm.client.registry.SFMKeyMappings;
 import ca.teamdman.sfm.client.screen.SFMScreenChangeHelpers;
 import ca.teamdman.sfm.common.cablenetwork.CableNetwork;
@@ -31,7 +31,6 @@ import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
@@ -157,7 +156,7 @@ public class LabelGunItem extends Item implements ToolItem {
         boolean contiguous = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CONTIGUOUS_MODIFIER_KEY);
         boolean clear = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_CLEAR_MODIFIER_KEY);
         boolean pull = SFMKeyMappings.isKeyDown(SFMKeyMappings.LABEL_GUN_PULL_MODIFIER_KEY);
-        boolean targetManager = SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY);
+        boolean aimMode = SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY);
 
         ServerboundLabelGunUsePacket msg = new ServerboundLabelGunUsePacket(
                 hand,
@@ -166,14 +165,12 @@ public class LabelGunItem extends Item implements ToolItem {
                 pickBlock,
                 clear,
                 pull,
-                targetManager,
-                BlockSelection.getCurrentSelection()
+                aimMode,
+                ToolItemAimModeHandler.getCurrentSelection()
         );
         ClientLabelGunWarningHelper.sendLabelGunUsePacketFromClientWithConfirmationIfNecessary(msg, player);
-        if (pickBlock) {
-            // we don't want to toggle the overlay if we're using pick-block
-            LabelGunKeyMappingHandler.setExternalDebounce();
-        }
+        // we don't want to toggle the overlay if we're using pick-block
+        LabelGunKeyMappingHandler.setExternalDebounce();
     }
 
     @Override
@@ -185,8 +182,8 @@ public class LabelGunItem extends Item implements ToolItem {
         ItemStack stack = player.getHeldItem(hand);
 
         if (world.isRemote) {
-            if (SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY) && BlockSelection.getMainSelectedBlock() != null) {
-                sendLabelGunUsePacket(player, BlockSelection.getMainSelectedBlock(), hand);
+            if (SFMKeyMappings.isKeyDown(SFMKeyMappings.AIM_MODE_MODIFIER_KEY) && ToolItemAimModeHandler.getMainSelectedBlock() != null) {
+                sendLabelGunUsePacket(player, ToolItemAimModeHandler.getMainSelectedBlock(), hand);
             } else {
                 SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
             }
@@ -220,7 +217,6 @@ public class LabelGunItem extends Item implements ToolItem {
             List<String> lines,
             ITooltipFlag detail
     ) {
-        ArrayList<ITextComponent> textComponentStrings = new ArrayList<>();
         if (SFMItemUtils.isClientAndMoreInfoKeyPressed()) {
             GameSettings options = Minecraft.getMinecraft().gameSettings;
             lines.add(
@@ -247,6 +243,7 @@ public class LabelGunItem extends Item implements ToolItem {
             );
             lines.add(
                     LocalizationKeys.LABEL_GUN_ITEM_TOOLTIP_AIM_MODE_REMINDER.getComponent(
+                            SFMKeyMappings.getKeyDisplay(SFMKeyMappings.AIM_MODE_MODIFIER_KEY),
                             SFMKeyMappings.getKeyDisplay(SFMKeyMappings.AIM_MODE_MODIFIER_KEY)
                     ).setStyle(new Style().setColor(TextFormatting.GRAY)).getFormattedText()
             );
@@ -291,25 +288,6 @@ public class LabelGunItem extends Item implements ToolItem {
             lines.addAll(LabelPositionHolder.from(stack).asHoverText());
         }
     }
-
-    @Override
-    public EnumActionResult onItemUse(
-            EntityPlayer player,
-            World world,
-            BlockPos pos,
-            EnumHand hand,
-            EnumFacing facing,
-            float hitX,
-            float hitY,
-            float hitZ
-    ) {
-        var stack = player.getHeldItem(hand);
-        if (world.isRemote) {
-            SFMScreenChangeHelpers.showLabelGunScreen(stack, hand);
-        }
-        return EnumActionResult.SUCCESS;
-    }
-
 
     @Override
     public String getItemStackDisplayName(ItemStack stack) {

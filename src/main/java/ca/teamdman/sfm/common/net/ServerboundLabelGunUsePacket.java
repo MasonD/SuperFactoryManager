@@ -1,14 +1,10 @@
 package ca.teamdman.sfm.common.net;
 
-import ca.teamdman.sfm.client.handler.BlockSelection;
 import ca.teamdman.sfm.common.label.LabelGunPlanner;
 import ca.teamdman.sfm.common.label.SelectionTargets;
-import ca.teamdman.sfm.common.util.CompressedBlockPosSet;
 import com.github.bsideup.jabel.Desugar;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-
-import java.util.Set;
 
 @Desugar
 public record ServerboundLabelGunUsePacket(

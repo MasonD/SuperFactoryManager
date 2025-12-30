@@ -55,14 +55,20 @@ public class LabelGunPlanner {
         }
 
         var activeLabel = LabelGunItem.getActiveLabel(gunStack);
-        SelectionTargets targets = SFMItems.LABEL_GUN_ITEM.getSelectedBlocksFromRaycast(player, gunStack, msg.pos());
+        SelectionTargets targets = msg.isAimModeActive() ? msg.blockSelection() : SFMItems.LABEL_GUN_ITEM.getSelectedBlocksFromRaycast(
+                player,
+                gunStack,
+                msg.pos()
+        );
 
         // Notify user if any blocks were skipped because they aren't touching cables
         // TODO: highlight skipped blocks in the world
         if (doWarning && !targets.warningPositions().isEmpty()) {
-            player.sendStatusMessage(LABEL_GUN_CHAT_SKIPPED_BLOCKS.getComponent(
-                    targets.warningPositions().size()
-            ), false);
+            player.sendStatusMessage(
+                    LABEL_GUN_CHAT_SKIPPED_BLOCKS.getComponent(
+                            targets.warningPositions().size()
+                    ), false
+            );
         }
 
         if (msg.isClearModifierActive()) {

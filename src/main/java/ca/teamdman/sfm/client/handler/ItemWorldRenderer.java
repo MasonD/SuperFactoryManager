@@ -2,11 +2,11 @@ package ca.teamdman.sfm.client.handler;
 
 import ca.teamdman.sfm.SFM;
 import ca.teamdman.sfm.client.render.HighlightRenderList;
+import ca.teamdman.sfm.client.screen.PointerSelectScreen;
 import ca.teamdman.sfm.common.item.LabelGunItem;
 import ca.teamdman.sfm.common.item.NetworkToolItem;
 import ca.teamdman.sfm.common.item.ToolItem;
 import ca.teamdman.sfm.common.label.LabelPositionHolder;
-import ca.teamdman.sfm.common.util.HelpsWithMinecraftVersionIndependence;
 import com.bbscn.Tools;
 import com.google.common.collect.HashMultimap;
 
@@ -14,23 +14,32 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.util.glu.GLU;
 
 import java.awt.*;
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 
 @SideOnly(Side.CLIENT)
 @Mod.EventBusSubscriber(modid = SFM.MOD_ID, value = Side.CLIENT)
@@ -49,25 +58,30 @@ public class ItemWorldRenderer {
 
     @SubscribeEvent
     public static void renderOverlays(RenderWorldLastEvent event) {
+        boolean rendered = false;
 
         Minecraft mc = Minecraft.getMinecraft();
         EntityPlayerSP player = mc.player;
         if (player == null) return;
 
 
-        ItemStack heldMain = player.getHeldItemMainhand();
-        ItemStack heldOff = player.getHeldItemOffhand();
-        boolean rendered = false;
-
-        if (heldMain.getItem() instanceof ToolItem) {
-            handleToolItem(player, heldMain, EnumHand.MAIN_HAND, event.getPartialTicks());
-            rendered = true;
-        } else if (heldOff.getItem() instanceof ToolItem) {
-            handleToolItem(player, heldOff, EnumHand.OFF_HAND, event.getPartialTicks());
-            rendered = true;
+        if (mc.currentScreen instanceof PointerSelectScreen screen) {
+            projectCursor(screen, player, mc, event.getPartialTicks());
         } else {
-            BlockSelection.clear();
+            ItemStack heldMain = player.getHeldItemMainhand();
+            ItemStack heldOff = player.getHeldItemOffhand();
+
+            if (heldMain.getItem() instanceof ToolItem) {
+                handleToolItem(player, heldMain, EnumHand.MAIN_HAND, event.getPartialTicks());
+                rendered = true;
+            } else if (heldOff.getItem() instanceof ToolItem) {
+                handleToolItem(player, heldOff, EnumHand.OFF_HAND, event.getPartialTicks());
+                rendered = true;
+            } else {
+                ToolItemAimModeHandler.clear();
+            }
         }
+
 
         ItemStack held;
         if ((held = getHeldItemOfType(player, NetworkToolItem.class)) != null) {
@@ -83,13 +97,201 @@ public class ItemWorldRenderer {
         }
     }
 
+    /**
+     * Gets the equivalent look direction of the cursor's current position on screen
+     * and sends that to AimModeTargetHandler in order to raycast the *cursor* onto blocks
+     */
+    private static void projectCursor(
+            PointerSelectScreen screen,
+            EntityPlayerSP player,
+            Minecraft mc,
+            float partialTicks
+    ) {
+        int mouseX = Mouse.getX();
+        int mouseY = Mouse.getY();
+
+        FloatBuffer modelView = BufferUtils.createFloatBuffer(16);
+        FloatBuffer projection = BufferUtils.createFloatBuffer(16);
+        IntBuffer viewport = BufferUtils.createIntBuffer(16);
+
+        GL11.glGetFloat(GL11.GL_MODELVIEW_MATRIX, modelView);
+        GL11.glGetFloat(GL11.GL_PROJECTION_MATRIX, projection);
+        GL11.glGetInteger(GL11.GL_VIEWPORT, viewport);
+
+        FloatBuffer result = BufferUtils.createFloatBuffer(4);
+
+        // Cursor's position flush with the screen
+        GLU.gluUnProject(
+                mouseX,
+                mouseY,
+                0f,
+                modelView,
+                projection,
+                viewport,
+                result
+        );
+        Vec3d near = new Vec3d(result.get(0), result.get(1), result.get(2));
+
+        result.clear();
+
+        // Cursor's position projected 1f into the screen
+        GLU.gluUnProject(
+                mouseX,
+                mouseY,
+                1f,
+                modelView,
+                projection,
+                viewport,
+                result
+        );
+        Vec3d far = new Vec3d(result.get(0), result.get(1), result.get(2));
+
+        Vec3d dir = far.subtract(near).normalize();
+
+        Entity view = mc.getRenderViewEntity();
+        Vec3d camPos = view.getPositionEyes(partialTicks);
+
+        var target = AimModeTargetHandler.traceCustomProjection(mc.world, camPos, dir);
+
+        if (target != null) {
+            if (AimModeTargetHandler.isShifted()) {
+                renderShiftLine();
+            }
+            if (screen.selectionStart != null) {
+                renderSelectionBoundaries(screen.selectionStart, target);
+                drawHighlights(
+                        VBOKind.CURSOR,
+                        screen.getSelectedBlocks(target),
+                        capabilityColor,
+                        mc.player,
+                        0.5F
+                );
+            } else {
+                if (screen.targetBlock != null) {
+                    renderSelectionBoundaries(target, target);
+
+                } else {
+                    drawHighlights(
+                            VBOKind.CURSOR,
+                            Collections.singleton(target),
+                            cableColor,
+                            mc.player,
+                            1
+                    );
+                }
+            }
+        } else {
+            drawHighlights(VBOKind.NETWORK_TOOL_CABLES, Collections.emptySet(), cableColor, mc.player, 1);
+
+        }
+    }
+
+    private static void renderShiftLine() {
+        GlStateManager.pushMatrix();
+        var renderManager = Minecraft.getMinecraft().getRenderManager();
+        GlStateManager.translate(
+                -renderManager.viewerPosX,
+                -renderManager.viewerPosY,
+                -renderManager.viewerPosZ
+        );
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.disableCull();
+        GlStateManager.disableDepth();
+
+        GlStateManager.color(255, 255, 255, 255);
+
+        BufferBuilder wr = Tessellator.getInstance().getBuffer();
+        wr.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION);
+
+        var start = AimModeTargetHandler.getCurrentTarget();
+
+        var end = AimModeTargetHandler.getUnshiftedTarget();
+        wr.pos(start.getX() + 0.5, start.getY() + 0.5, start.getZ() + 0.5).endVertex();
+        wr.pos(end.getX() + 0.5, end.getY() + 0.5, end.getZ() + 0.5).endVertex();
+
+        Tessellator.getInstance().draw();
+
+        GlStateManager.enableDepth();
+        GlStateManager.disableBlend();
+        GlStateManager.enableCull();
+        GlStateManager.enableTexture2D();
+        GlStateManager.popMatrix();
+    }
+
+    private static void renderSelectionBoundaries(BlockPos start, BlockPos end) {
+        GlStateManager.pushMatrix();
+        var renderManager = Minecraft.getMinecraft().getRenderManager();
+        GlStateManager.translate(
+                -renderManager.viewerPosX,
+                -renderManager.viewerPosY,
+                -renderManager.viewerPosZ
+        );
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.disableCull();
+        GlStateManager.disableDepth();
+
+
+        BufferBuilder wr = Tessellator.getInstance().getBuffer();
+        wr.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+
+        double minX = Math.min(start.getX(), end.getX());
+        double minY = Math.min(start.getY(), end.getY());
+        double minZ = Math.min(start.getZ(), end.getZ());
+
+        double maxX = Math.max(start.getX(), end.getX()) + 1;
+        double maxY = Math.max(start.getY(), end.getY()) + 1;
+        double maxZ = Math.max(start.getZ(), end.getZ()) + 1;
+
+        wr.pos(minX, minY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, minY, minZ).color(255, 255, 255, 50).endVertex();
+
+        wr.pos(maxX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+
+        wr.pos(minX, minY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+
+        wr.pos(maxX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, minY, minZ).color(255, 255, 255, 50).endVertex();
+
+        wr.pos(minX, minY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, minY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, minY, maxZ).color(255, 255, 255, 50).endVertex();
+
+        wr.pos(minX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, maxY, maxZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(maxX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+        wr.pos(minX, maxY, minZ).color(255, 255, 255, 50).endVertex();
+
+        Tessellator.getInstance().draw();
+
+        GlStateManager.enableDepth();
+        GlStateManager.disableBlend();
+        GlStateManager.enableCull();
+        GlStateManager.enableTexture2D();
+        GlStateManager.popMatrix();
+    }
+
     private static void handleToolItem(
             EntityPlayerSP player,
             ItemStack tool,
             EnumHand hand,
             float partialTicks
     ) {
-        var selectionBlocks = BlockSelection.updateSelection(player, tool, hand, partialTicks);
+        var selectionBlocks = ToolItemAimModeHandler.updateSelection(player, tool, hand, partialTicks);
         if (selectionBlocks.isEmpty()) return;
         drawHighlights(VBOKind.TOOL_ITEM_SELECTED_BLOCKS, selectionBlocks.positions(), capabilityColor, player, 1);
         drawHighlights(VBOKind.TOOL_ITEM_WARNING_BLOCKS, selectionBlocks.warningPositions(), warningColor, player, 1);
@@ -106,8 +308,12 @@ public class ItemWorldRenderer {
                 -renderManager.viewerPosY,
                 -renderManager.viewerPosZ
         );
-        if (BlockSelection.getMainSelectedBlock() != null) {
-            drawLabel(BlockSelection.getMainSelectedBlock(), Collections.singleton(LabelGunItem.getActiveLabel(tool)), player);
+        if (ToolItemAimModeHandler.getMainSelectedBlock() != null) {
+            drawLabel(
+                    ToolItemAimModeHandler.getMainSelectedBlock(),
+                    Collections.singleton(LabelGunItem.getActiveLabel(tool)),
+                    player
+            );
         }
 
         GlStateManager.enableDepth();
@@ -306,91 +512,8 @@ public class ItemWorldRenderer {
         NETWORK_TOOL_CAPABILITIES,
         NETWORK_TOOL_CABLES,
         TOOL_ITEM_SELECTED_BLOCKS,
-        TOOL_ITEM_WARNING_BLOCKS
-    }
-
-
-    @HelpsWithMinecraftVersionIndependence
-    private static void writeVertex(
-            BufferBuilder builder,
-            BlockPos pos,
-            float x,
-            float y,
-            float z,
-            int r,
-            int g,
-            int b,
-            int a
-    ) {
-//        Vector4f vec = org.lwjgl.util.vector.Matrix4f.transform(matrix4f, new Vector4f(x, y, z, 1.0F), null);
-        builder.pos(pos.getX(), pos.getY(), pos.getZ()).color(r, g, b, a).endVertex();
-//        for (int e = 0; e < builder.getVertexFormat().getElementCount(); e++) {
-//            switch (builder.getVertexFormat().getElement(e).getUsage()) {
-//                case POSITION:
-//                    builder.put(e, vec.getX(), vec.getY(), vec.getZ(), 1f);
-//                    break;
-//                case COLOR:
-//                    builder.put(e, r, g, b, a);
-//                    break;
-//                default:
-//                    builder.put(e);
-//                    break;
-//            }
-//        }
-    }
-
-    private static void writeFaceVertices(
-            BufferBuilder builder,
-            BlockPos matrix4f,
-            EnumFacing direction,
-            int r,
-            int g,
-            int b,
-            int a
-    ) {
-        double scale = 1 - ((double) direction.ordinal() / 25d);
-        r = (int) (r * scale);
-        g = (int) (g * scale);
-        b = (int) (b * scale);
-        a = (int) (a * scale);
-        switch (direction) {
-            case DOWN:
-                writeVertex(builder, matrix4f, 0F, 0F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 0F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 0F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 0F, 1F, r, g, b, a);
-                break;
-            case UP:
-                writeVertex(builder, matrix4f, 0F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 1F, 0F, r, g, b, a);
-                break;
-            case NORTH:
-                writeVertex(builder, matrix4f, 0F, 0F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 1F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 0F, 0F, r, g, b, a);
-                break;
-            case SOUTH:
-                writeVertex(builder, matrix4f, 1F, 0F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 0F, 1F, r, g, b, a);
-                break;
-            case WEST:
-                writeVertex(builder, matrix4f, 0F, 0F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 1F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 0F, 0F, 0F, r, g, b, a);
-                break;
-            case EAST:
-                writeVertex(builder, matrix4f, 1F, 0F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 0F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 1F, 1F, r, g, b, a);
-                writeVertex(builder, matrix4f, 1F, 0F, 1F, r, g, b, a);
-                break;
-        }
+        TOOL_ITEM_WARNING_BLOCKS,
+        CURSOR,
     }
 
 
@@ -415,10 +538,14 @@ public class ItemWorldRenderer {
 
             boolean shouldRebuild = entry == null;
 
-            if (entry != null
-                    && player.ticksExisted != lastCachedTick
-                    && !entry.positions.equals(positions))
-            {
+            if (entry == null
+                    || player.ticksExisted != lastCachedTick
+                    || !entry.positions.equals(positions)
+                    || entry.r != r
+                    || entry.g != g
+                    || entry.b != b
+                    || entry.a != a
+            ) {
                 lastCachedTick = player.ticksExisted;
                 shouldRebuild = true;
             }
