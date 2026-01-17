@@ -431,9 +431,9 @@ public final class LocalizationKeys {
             "program.sfm.reminders.push_labels",
             "Did you remember to push your labels using the label gun?"
     );
-    public static final LocalizationEntry PROGRAM_WARNING_MEKANISM_USED_WITH_NULL_DIRECTION = new LocalizationEntry(
-            "program.sfm.warnings.mekanism_used_without_direction",
-            "Mekanism blocks are read-only from the null direction, check label \"%s\" used in \"%s\""
+    public static final LocalizationEntry PROGRAM_WARNING_AE2_CABLE_USED_WITH_NULL_DIRECTION = new LocalizationEntry(
+            "program.sfm.warnings.ae2_cable_used_without_direction",
+            "Parts attached to an AE2 cable are only accessible from the correct side, check label \"%s\" used in \"%s\""
     );
     public static final LocalizationEntry PROGRAM_WARNING_MEKANISM_BAD_SIDE_CONFIG = new LocalizationEntry(
             "program.sfm.warnings.mekanism_bad_side_config",

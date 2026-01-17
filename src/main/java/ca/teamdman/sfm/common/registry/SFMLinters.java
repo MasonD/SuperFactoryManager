@@ -2,7 +2,9 @@ package ca.teamdman.sfm.common.registry;
 
 import ca.teamdman.sfm.SFM;
 import ca.teamdman.sfm.common.CommonProxy;
+import ca.teamdman.sfm.common.compat.SFMModCompat;
 import ca.teamdman.sfm.common.program.linting.*;
+import ca.teamdman.sfm.common.program.linting.compat.ae2.AE2CablePartSideLinter;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.registries.IForgeRegistry;
 
@@ -19,6 +21,10 @@ public class SFMLinters {
         prepareRegister(new RoundRobinProgramLinter(), "round_robin");
         prepareRegister(new IncompleteIOProgramLinter(), "incomplete_io");
         prepareRegister(new NoSlotStatementProgramLinter(), "no_slot_statement");
+
+        if (SFMModCompat.isAE2Loaded()) {
+            prepareRegister(new AE2CablePartSideLinter(), "ae2_cable_side_linter");
+        }
     }
 
     private static <T extends IProgramLinter> T prepareRegister(T linter, String name) {

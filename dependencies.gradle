@@ -57,7 +57,7 @@ dependencies {
     embed("com.github.mpkorstanje:simmetrics-core:4.1.1")
 
     // For testing with AE2
-    runtimeOnlyNonPublishable(rfg.deobf("curse.maven:ae2-extended-life-570458:6302098"))
+    compileOnly(rfg.deobf("curse.maven:ae2-extended-life-570458:6302098"))
     runtimeOnlyNonPublishable(rfg.deobf("curse.maven:ae2-fluid-crafting-rework-623955:5504001"))
     runtimeOnlyNonPublishable(rfg.deobf("curse.maven:nae2-884359:5380800"))
 
